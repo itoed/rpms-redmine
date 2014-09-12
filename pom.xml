@@ -1,0 +1,99 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>net.fghijk.maven.poms</groupId>
+        <artifactId>fghijk-rpm-root-pom</artifactId>
+        <version>0.1-SNAPSHOT</version>
+    </parent>
+
+    <groupId>net.fghijk.rpms</groupId>
+    <artifactId>redmine</artifactId>
+    <version>2.5.2-1</version>
+    <packaging>rpm</packaging>
+
+    <name>Redmine</name>
+    <description>Redmine project management web application</description>
+
+    <properties>
+        <rpm.version>2.5.2</rpm.version>
+        <rpm.release>1</rpm.release>
+        <rpm.arch>x86_64</rpm.arch>
+        <scm.host>gitlab.fghijk.net</scm.host>
+    </properties>
+
+    <build>
+        <outputDirectory>${project.build.directory}/rpmbuild</outputDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/rpmbuild</directory>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5.2</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-scm-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>checkout-redmine</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>checkout</goal>
+                        </goals>
+                        <configuration>
+                            <connectionUrl>scm:git:git@${scm.host}:thirdparty/redmine.git</connectionUrl>
+                            <scmVersion>${rpm.version}</scmVersion>
+                            <scmVersionType>tag</scmVersionType>
+                            <checkoutDirectory>${project.build.outputDirectory}/SOURCES/redmine-${rpm.version}</checkoutDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>net.fghijk.maven.plugins</groupId>
+                <artifactId>fghijk-bash-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>rpmbuild</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <script>
+                                rpmbuild -ba --define '_topdir ${project.build.outputDirectory}' \
+                                --define '_name ${project.artifactId}' \
+                                --define '_version ${rpm.version}' \
+                                --define '_release ${rpm.release}' \
+                                --define '_arch ${rpm.arch}' \
+                                ${project.build.outputDirectory}/SPECS/${project.artifactId}.spec
+                            </script>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>net.fghijk.maven.plugins</groupId>
+                <artifactId>fghijk-rpm-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <outputRpm>${project.build.outputDirectory}/RPMS/${rpm.arch}/${project.build.finalName}.${rpm.arch}.rpm</outputRpm>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <distributionManagement>
+        <repository>
+            <id>rpms</id>
+            <name>FGHIJK RPM Releases</name>
+            <url>${fghijk.repos.rpms}</url>
+        </repository>
+    </distributionManagement>
+</project>

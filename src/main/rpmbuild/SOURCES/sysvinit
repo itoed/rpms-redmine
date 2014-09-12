@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Redmine
+
+# chkconfig: 2345 82 55
+# processname: redmine-unicorn
+# description: Runs unicorn for nginx integration.
+
+# Include RedHat function library
+. /etc/rc.d/init.d/functions
+
+# The name of the service
+NAME=${0##*/}
+
+### Environment variables
+RAILS_ENV="production"
+
+# The username and path to the redmine source
+USER=redmine
+APP_PATH=/home/$USER/redmine
+UNICORN_CONFIG=$APP_PATH/config/unicorn.rb
+START_CMD="bundle exec unicorn_rails -D -c $UNICORN_CONFIG -E $RAILS_ENV"
+
+# The PID and LOCK files used by unicorn and sidekiq
+UPID=$APP_PATH/tmp/pids/unicorn.pid
+ULOCK=/var/lock/subsys/redmine-unicorn
+
+# Evaluate the real path for the user (should already have RVM)
+PATH_PATCH="PATH=$(su $USER -s /bin/bash -l -c "echo \"\$PATH\"") && export PATH && "
+
+start() {
+  cd $APP_PATH
+
+  # Start unicorn
+  echo -n $"Starting unicorn: "
+  daemon --pidfile=$UPID --user=$USER "$PATH_PATCH $START_CMD"
+  unicorn=$?
+  [ $unicorn -eq 0 ] && touch $ULOCK
+  echo
+
+  return $unicorn
+}
+
+stop() {
+  cd $APP_PATH
+
+  # Stop unicorn
+  echo -n $"Stopping unicorn: "
+  killproc -p $UPID
+  unicorn=$?
+  [ $unicorn -eq 0 ] && rm -f $ULOCK
+  echo
+
+  return $unicorn
+}
+
+restart() {
+  stop
+  start
+}
+
+get_status() {
+  status -p $UPID unicorn
+  unicorn=$?
+
+  return $unicorn
+}
+
+query_status() {
+  get_status >/dev/null 2>&1
+  return $?
+}
+
+case "$1" in
+  start)
+    query_status && exit 0
+    start || exit 1
+    ;;
+  stop)
+    query_status || exit 0
+    stop || exit 1
+    ;;
+  restart)
+    restart || exit 1
+    ;;
+  status)
+    get_status
+	exit $?
+    ;;
+  *)
+    N=/etc/init.d/$NAME
+    echo "Usage: $N {start|stop|restart|status}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
